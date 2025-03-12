@@ -14,6 +14,8 @@ public:
   Mutex(const char* name);
   ~Mutex();
 
+  bool try_lock();
+
   void lock();
   void unlock();
 

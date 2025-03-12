@@ -148,6 +148,14 @@ Mutex::~Mutex()
 {
 }
 
+bool Mutex::try_lock()
+{
+#ifndef NDEBUG
+  graph.AddNode(id_, name_);
+#endif
+  return mutex_.try_lock();
+}
+
 void Mutex::lock()
 {
 #ifndef NDEBUG
