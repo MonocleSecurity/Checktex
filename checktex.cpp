@@ -59,6 +59,7 @@ class Graph
 public:
   Graph()
     : tree_(0, nullptr)
+    , alive_(true)
   {
   }
 
@@ -66,6 +67,7 @@ public:
 
   ~Graph()
   {
+    alive_ = false;
     if (tree_.children_.size())
     {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -75,6 +77,10 @@ public:
 
   void AddNode(const uint64_t mutex_id, const char* mutex_name)
   {
+    if (!alive_)
+    {
+      return;
+    }
     // Build tree
     if (current_vector_.empty())
     {
@@ -110,6 +116,10 @@ public:
 
   void RemoveNode(const uint64_t mutex_id)
   {
+    if (!alive_)
+    {
+      return;
+    }
     std::vector<uint64_t>::iterator last = current_vector_.end();
     for (std::vector<uint64_t>::iterator i = current_vector_.begin(); i != current_vector_.end(); ++i)
     {
@@ -129,6 +139,7 @@ public:
 
   Node tree_;
   std::vector<uint64_t> current_vector_;
+  bool alive_;
 
   static std::mutex mutex_;
   static std::vector<Node> trees_;
