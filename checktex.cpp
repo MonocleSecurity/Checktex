@@ -110,14 +110,21 @@ public:
 
   void RemoveNode(const uint64_t mutex_id)
   {
-    std::vector<uint64_t>::const_reverse_iterator i = std::find(current_vector_.crbegin(), current_vector_.crend(), mutex_id);
-    if (i == current_vector_.crend())
+    std::vector<uint64_t>::iterator last = current_vector_.end();
+    for (std::vector<uint64_t>::iterator i = current_vector_.begin(); i != current_vector_.end(); ++i)
+    {
+      if (*i == mutex_id)
+      {
+        last = i;
+      }
+    }
+    if (last == current_vector_.end())
     {
       std::cout << "Could not find node" << std::endl;
       abort();
       return;
     }
-    current_vector_.erase(std::next(i).base());
+    current_vector_.erase(last);
   }
 
   Node tree_;
@@ -151,15 +158,21 @@ Mutex::~Mutex()
 bool Mutex::try_lock()
 {
 #ifndef NDEBUG
-  graph.AddNode(id_, name_);
-#endif
+  if (mutex_.try_lock())
+  {
+    graph.AddNode(id_, name_);
+    return true;
+  }
+  return false;
+#else
   return mutex_.try_lock();
+#endif
 }
 
 void Mutex::lock()
 {
 #ifndef NDEBUG
-  graph.AddNode(id_, name_);
+  graph.AddNode(id_, name_); // We just always add
 #endif
   mutex_.lock();
 }
