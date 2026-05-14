@@ -54,12 +54,25 @@ public:
   std::vector<Node> children_;
 };
 
+struct GraphStatics
+{
+  std::mutex mutex;
+  std::vector<Node> trees;
+};
+
 class Graph
 {
 public:
+  static std::shared_ptr<GraphStatics> GetStatics()
+  {
+    static std::shared_ptr<GraphStatics> instance = std::make_shared<GraphStatics>();
+    return instance;
+  }
+
   Graph()
     : tree_(0, nullptr)
     , alive_(true)
+    , statics_(GetStatics())
   {
   }
 
@@ -70,8 +83,8 @@ public:
     alive_ = false;
     if (tree_.children_.size())
     {
-      std::lock_guard<std::mutex> lock(mutex_);
-      trees_.push_back(tree_);
+      std::lock_guard<std::mutex> lock(statics_->mutex);
+      statics_->trees.push_back(tree_);
     }
   }
 
@@ -140,13 +153,9 @@ public:
   Node tree_;
   std::vector<uint64_t> current_vector_;
   bool alive_;
-
-  static std::mutex mutex_;
-  static std::vector<Node> trees_;
+  std::shared_ptr<GraphStatics> statics_;
 };
 
-std::mutex Graph::mutex_;
-std::vector<Node> Graph::trees_;
 thread_local Graph graph;
 
 Mutex::Mutex()
@@ -252,8 +261,9 @@ void PruneNode(Node& node, std::vector<Node>& current_nodes)
 void PruneTree()
 {
   // Prune the tree of duplicates downstream. This is easier than trying to do it within the printing loop and recursion
-  std::lock_guard<std::mutex> lock(Graph::mutex_);
-  for (Node& node : Graph::trees_)
+  std::shared_ptr<GraphStatics> statics = Graph::GetStatics();
+  std::lock_guard<std::mutex> lock(statics->mutex);
+  for (Node& node : statics->trees)
   {
     std::vector<Node> current_nodes;
     for (Node& child : node.children_)
@@ -265,9 +275,10 @@ void PruneTree()
 
 void PrintTree()
 {
-  std::lock_guard<std::mutex> lock(Graph::mutex_);
+  std::shared_ptr<GraphStatics> statics = Graph::GetStatics();
+  std::lock_guard<std::mutex> lock(statics->mutex);
   int thread_num = 0;
-  for (const Node& node : Graph::trees_)
+  for (const Node& node : statics->trees)
   {
     std::cout << "Thread " << ++thread_num << '\n';
     for (const Node& child : node.children_)
@@ -299,8 +310,9 @@ void PrintMutexes()
   // Gather mutex names
   std::vector<std::pair<uint64_t, std::string>> mutex_names;
   {
-    std::lock_guard<std::mutex> lock(Graph::mutex_);
-    for (const Node& node : Graph::trees_)
+    std::shared_ptr<GraphStatics> statics = Graph::GetStatics();
+    std::lock_guard<std::mutex> lock(statics->mutex);
+    for (const Node& node : statics->trees)
     {
       for (const Node& child : node.children_)
       {
@@ -381,10 +393,11 @@ void FindDeadlocks(const GraphNode* node, std::vector<uint64_t> current_nodes, s
 
 void PrintPotentialDeadlocks()
 {
-  std::lock_guard<std::mutex> lock(Graph::mutex_);
+  std::shared_ptr<GraphStatics> statics = Graph::GetStatics();
+  std::lock_guard<std::mutex> lock(statics->mutex);
   // Merge all the data into a single graph
   std::vector<std::unique_ptr<GraphNode>> unique_nodes;
-  for (const Node& node : Graph::trees_)
+  for (const Node& node : statics->trees)
   {
     for (const Node& child : node.children_)
     {
