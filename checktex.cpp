@@ -156,7 +156,13 @@ public:
   std::shared_ptr<GraphStatics> statics_;
 };
 
-thread_local Graph graph;
+#ifndef NDEBUG
+Graph& GetGraph()
+{
+  thread_local Graph graph;
+  return graph;
+}
+#endif
 
 Mutex::Mutex()
   : Mutex(nullptr)
@@ -180,7 +186,7 @@ bool Mutex::try_lock()
 #ifndef NDEBUG
   if (mutex_.try_lock())
   {
-    graph.AddNode(id_, name_);
+    GetGraph().AddNode(id_, name_);
     return true;
   }
   return false;
@@ -192,7 +198,7 @@ bool Mutex::try_lock()
 void Mutex::lock()
 {
 #ifndef NDEBUG
-  graph.AddNode(id_, name_); // We just always add
+  GetGraph().AddNode(id_, name_); // We just always add
 #endif
   mutex_.lock();
 }
@@ -200,7 +206,7 @@ void Mutex::lock()
 void Mutex::unlock()
 {
 #ifndef NDEBUG
-  graph.RemoveNode(id_);
+  GetGraph().RemoveNode(id_);
 #endif
   mutex_.unlock();
 }
